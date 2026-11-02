@@ -100,7 +100,7 @@ class World():
         plantsPoints     = [(p.posX, p.posY) for p in self.plants]
         waterSourcesPoints = [(w.posX, w.posY) for w in self.waterSources]
         corpsesPoints = [(w.posX, w.posY) for w in self.corpses]
-
+        #TODO draw->pass the above points to a listener on a different thread to draw it
 
 
         ##update all creatures memory
@@ -109,6 +109,7 @@ class World():
             update_memory(group, enemyPts,              "numberOfEnemiesMemory", "lastEnemiesSeen")
             update_memory(group, plantsPoints,     "numberOfPlantMemory",   "lastPlantsSeen")
             update_memory(group, waterSourcesPoints, "numberOfWaterMemory", "lastWaterSeen")
+            update_memory(group, corpsesPoints, "numberOfCorpseMemory", "lastCorpsesSeen")
         
         
         ##tick plants and creatures and corpses
@@ -130,5 +131,5 @@ class World():
         self.corpses = [c for c in self.corpses if not c.remove]
         self.creaturesA = [c for c in self.creaturesA if not c.remove]
         self.creaturesB = [c for c in self.creaturesB if not c.remove]
-        #TODO draw
+        
         

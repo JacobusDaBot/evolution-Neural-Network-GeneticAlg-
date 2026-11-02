@@ -10,6 +10,7 @@
 from math import sqrt
 import math
 
+from src.worldObjects import world
 memorySize=25#how many things it can remember at once
 
 class Creature:
@@ -68,7 +69,7 @@ class Creature:
         #TODO complete
         return f""
         
-    def tick(self):#think
+    def tick(self,world):#think
         if self.health <= 0:
             self.remove=True
             return
@@ -79,8 +80,9 @@ class Creature:
         self.hunger-=0.1
         self.thirst-=0.1
         if self.hunger<=0 or self.thirst<= 0:
-                    self.health=0
-                    self.remove=True
+            self.health=0
+            self.remove=True
+            world.makeCorpse(self.posX,self.posY)
         #get NN output->think
         
         
