@@ -8,7 +8,7 @@ class Corpse:
         self.remove=False
         self.health=100
     def tick(self):
-        self.health-=0.1
+        self.health-=1
         if self.health<=0:
             self.remove=True
             

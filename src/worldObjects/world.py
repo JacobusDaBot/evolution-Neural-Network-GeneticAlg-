@@ -82,7 +82,11 @@ class World():
         numWater=4
         self.waterSources=[Water(x*self.width/numWater,y*self.height/numWater) for x in range(1,numWater) for y in range(1,numWater)]
         self.corpses = []   # see note below
-        
+        self.newCreaturesA=[]
+        self.newCreaturesB=[]
+        self.deadCreaturesA=[]
+        self.deadCreaturesB=[]
+                
     def snapshot(self) -> WorldSnapshot:
         """Immutable copy for the UI. Call only from the sim thread, between ticks."""
         objs = []
@@ -114,19 +118,27 @@ class World():
         brain=makeChildBrain(brain1,brain2)
         if type==0:
             self.creaturesACount+=1
-            self.creaturesA.append(Creature(self.creaturesACount,0,self,posX,posY,makeChildBrain(brain1,brain2),health))
+            self.newCreaturesA.append(Creature(self.creaturesACount,0,self,posX,posY,brain,health))
         else:
             self.creaturesBCount+=1
-            self.creaturesA.append(Creature(self.creaturesBCount,0,self,posX,posY,makeChildBrain(brain1,brain2),health))
+            self.newCreaturesB.append(Creature(self.creaturesBCount,0,self,posX,posY,brain,health))
         
     def tick(self):
         self.tick_count += 1
-        dead = [c for c in self.creaturesA + self.creaturesB if c.remove]
+        dead = [c for c in self.creaturesA  if c.remove]
         for c in dead:
+            self.deadCreaturesA.append(c)
+                    
+            self.makeCorpse(c.posX, c.posY)
+        dead = [c for c in self.creaturesB  if c.remove]
+        for c in dead:
+            self.deadCreaturesB.append(c)
             self.makeCorpse(c.posX, c.posY)
         self.corpses = [c for c in self.corpses if not c.remove]
-        self.creaturesA = [c for c in self.creaturesA if not c.remove]
-        self.creaturesB = [c for c in self.creaturesB if not c.remove]
+        self.creaturesA = [c for c in self.creaturesA +self.newCreaturesA if not c.remove ]
+        self.creaturesB = [c for c in self.creaturesB +self.newCreaturesB  if not c.remove]
+        self.newCreaturesA=[]
+        self.newCreaturesB=[]
         ### gather info for all creatures
         creaturesAPoints = [(c.posX, c.posY) for c in self.creaturesA]
         creaturesBPoints = [(c.posX, c.posY) for c in self.creaturesB]
@@ -163,6 +175,8 @@ class World():
         
     def hasEnded(self):
         #TODO save the brains->genetic stuff->make new brains
-        for c  in self.creaturesA:
+        for c  in self.deadCreaturesA:
             print(c.lifespan)
+        for c  in self.deadCreaturesB:
+                    print(c.lifespan)
         pass

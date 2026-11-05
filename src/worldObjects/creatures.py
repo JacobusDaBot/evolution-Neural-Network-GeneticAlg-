@@ -59,8 +59,8 @@ class Creature:
 
         # per-tick stats
         self.health = health           # out of 100
-        self.hunger = 50           # out of 100
-        self.thirst = 50           # out of 100
+        self.hunger = 25           # out of 100
+        self.thirst = 25           # out of 100
         self.posX=posX
         if posX==-1:
             self.posX = random.uniform(0, world.width)            
@@ -85,10 +85,12 @@ class Creature:
             self.foodFromPlant = 1
             self.foodFromMeat = 0.1
             self.attackRange = 5
+            self.attackPower = 10
         elif type == 1:  # carnivore
             self.foodFromPlant = 0.6
             self.foodFromMeat = 10
             self.attackRange = 10
+            self.attackPower = 20
         self.decision=self.brain.evaluate(self.inputVector())# your brain forward pass
             
     def _flatten_memory(self, points, max_len):
@@ -126,22 +128,21 @@ class Creature:
     def tick(self):#think
         if self.health <= 0:
             self.remove=True
-            return
-        if self.remove==True:
-            return
-        self.lifespan+=1
         #self.health+=1
         #if self.health>100:
         #    self.health=100
-        self.hunger-=0.1
-        self.thirst-=0.1
-        if self.hunger<=0 or self.thirst<= 0:
-            self.health=0
-            self.remove=True
-            return
+        if not self.remove:
+            self.hunger-=0.2
+            self.thirst-=0.2
+            if self.hunger<=0 or self.thirst<= 0:
+                self.health=0
+                self.remove=True
+            
         
         #get NN output->think
-        self.decision=self.brain.evaluate(self.inputVector())# your brain forward pass
+        if not self.remove:
+            self.lifespan+=1
+            self.decision=self.brain.evaluate(self.inputVector())# your brain forward pass
         
     def act(self):
         #can allways turn but can only turn in one direction
@@ -173,7 +174,7 @@ class Creature:
         self.health -= amount
         if self.health <= 0:
             self.remove=True
-            return
+            
     
     def move(self):
         self.posX += self.maxSpeed * math.cos(self.direction)
@@ -255,12 +256,14 @@ class Creature:
        
         for p in allies:
             if sqrt((p.posX - self.posX) ** 2 + (p.posY - self.posY) ** 2) <= self.attackRange:    
-                self.world.createChild(self.type,self.brain,p.brain,self.posX,self.posY,self.attackPower)
-                p.damage(self.attackPower)#reduce health of mate
-                self.hunger-=self.attackPower #make self hungry
-                self.thirst-=self.attackPower #make self thirsty
-                
-                break
+                if ( not p.remove):
+                    self.world.createChild(self.type,self.brain,p.brain,self.posX,self.posY,self.attackPower*2)
+                    p.damage(self.attackPower)#reduce health of mate
+                    self.damage(self.attackPower)
+                    self.hunger-=self.attackPower #make self hungry
+                    self.thirst-=self.attackPower #make self thirsty
+                    self.numChildren+=1
+                    break
         
         #easy mode
         ''' 
