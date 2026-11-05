@@ -4,12 +4,10 @@
 ## store creatures 
 import numpy as np
 
-from src.worldObjects.creatures import Creature
-
-import numpy as np
-
-from src.worldObjects.plants import Corpse, Plant, Water
-
+from .creatures import Creature
+from .plants import Corpse, Plant, Water
+from .snapshot import ObjectView, CreatureView, WorldSnapshot
+from neuralNetStuff.geneticAlg import makeChildBrain
 #TODO load a template of creatures plants and water so each gen has same start 
 
 
@@ -66,43 +64,76 @@ def update_memory(group, pts, mem_attr, last_attr):
         setattr(c, last_attr, merge_memory(new, getattr(c, last_attr), m))
 
 class World():
-    creaturesA=[]
-    creaturesB=[]
-    plants=[]
-    waterSources=[]
-    corpses=[]
+    
     #TODO actually restrict creatures movement to world bounds
     width=500
     height=500
     def __init__(self, id):
         self.id = id
-        self.creaturesA=[Creature(i,0) for i in range(10)] 
-        self.creaturesB=[Creature(i,1) for i in range(10)]
-        self.plants=[Plant(x,y) for x in range(5) for y in range(5)]
-        self.waterSources=[Water(x,y) for x in range(2) for y in range(2)]
+        self.tick_count = 0
         
+        self.creaturesACount=10
+        
+        self.creaturesBCount=10
+        self.creaturesA=[Creature(i,0,self) for i in range(self.creaturesACount)] 
+        self.creaturesB=[Creature(i,1,self) for i in range(self.creaturesBCount)]
+        numPlants=6
+        self.plants=[Plant(x*self.width/numPlants,y*self.height/numPlants) for x in range(1,numPlants) for y in range(1,numPlants)]
+        numWater=4
+        self.waterSources=[Water(x*self.width/numWater,y*self.height/numWater) for x in range(1,numWater) for y in range(1,numWater)]
+        self.corpses = []   # see note below
+        
+    def snapshot(self) -> WorldSnapshot:
+        """Immutable copy for the UI. Call only from the sim thread, between ticks."""
+        objs = []
+        objs += [ObjectView("water",     w.posX, w.posY, 5) for w in self.waterSources]
+        objs += [ObjectView("plant",     p.posX, p.posY, 2) for p in self.plants]
+        objs += [ObjectView("corpse",    c.posX, c.posY, 2) for c in self.corpses]
+        objs += [ObjectView("creatureA", c.posX, c.posY, 3) for c in self.creaturesA]
+        objs += [ObjectView("creatureB", c.posX, c.posY, 3) for c in self.creaturesB]
+        creatures = []
+        for kind, group in (("creatureA", self.creaturesA), ("creatureB", self.creaturesB)):
+            for c in group:
+                if c.remove:
+                    continue
+                creatures.append(CreatureView(
+                    c.id, kind,
+                    float(c.health), float(c.hunger), float(c.thirst),
+                    int(c.numChildren),
+                    tuple(float(v) for v in c.decision),
+                ))
+
+        return WorldSnapshot(self.tick_count, self.width, self.height,
+                            tuple(objs), tuple(creatures))
+        # makeCorpse and createChild unchanged
+    
     def makeCorpse(self,posX,posY):
         self.corpses.append(Corpse(0,posX,posY))
         
-    def createChild(self,type,brain1,brain2):
-        
-        
-        pass
-        
-        
-        
-        
+    def createChild(self,type,brain1,brain2,posX,posY,health=50):#type is 0 for creaturesA,1 for creaturesB
+        brain=makeChildBrain(brain1,brain2)
+        if type==0:
+            self.creaturesACount+=1
+            self.creaturesA.append(Creature(self.creaturesACount,0,self,posX,posY,makeChildBrain(brain1,brain2),health))
+        else:
+            self.creaturesBCount+=1
+            self.creaturesA.append(Creature(self.creaturesBCount,0,self,posX,posY,makeChildBrain(brain1,brain2),health))
         
     def tick(self):
+        self.tick_count += 1
+        dead = [c for c in self.creaturesA + self.creaturesB if c.remove]
+        for c in dead:
+            self.makeCorpse(c.posX, c.posY)
+        self.corpses = [c for c in self.corpses if not c.remove]
+        self.creaturesA = [c for c in self.creaturesA if not c.remove]
+        self.creaturesB = [c for c in self.creaturesB if not c.remove]
         ### gather info for all creatures
         creaturesAPoints = [(c.posX, c.posY) for c in self.creaturesA]
         creaturesBPoints = [(c.posX, c.posY) for c in self.creaturesB]
         plantsPoints     = [(p.posX, p.posY) for p in self.plants]
         waterSourcesPoints = [(w.posX, w.posY) for w in self.waterSources]
         corpsesPoints = [(w.posX, w.posY) for w in self.corpses]
-        #TODO draw->pass the above points to a listener on a different thread to draw it
-
-
+        
         ##update all creatures memory
         for group, enemyPts in ((self.creaturesA, creaturesBPoints),
                                 (self.creaturesB, creaturesAPoints)):#creatures a and b both see eachother as enemies
@@ -113,23 +144,25 @@ class World():
         
         
         ##tick plants and creatures and corpses
-        for c in self.creaturesA:##TODO all creatures think
+        for c in self.creaturesA:
             c.tick()
-        for c in self.creaturesB:##TODO all creatures think
+        for c in self.creaturesB:
             c.tick()
         for c in self.corpses:
             c.tick()
         for p in self.plants:
             p.tick()
             
-        ## TODO all creatures act
         for c in self.creaturesA:
             c.act()
         for c in self.creaturesB:
             c.act()
-        ##remove dead stuff TODO keep old creatures to mutate/evolve
-        self.corpses = [c for c in self.corpses if not c.remove]
-        self.creaturesA = [c for c in self.creaturesA if not c.remove]
-        self.creaturesB = [c for c in self.creaturesB if not c.remove]
+        ##remove dead stuff
+        ##TODO   save dead stuff to mutate later
         
         
+    def hasEnded(self):
+        #TODO save the brains->genetic stuff->make new brains
+        for c  in self.creaturesA:
+            print(c.lifespan)
+        pass
