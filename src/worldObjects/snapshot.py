@@ -15,6 +15,7 @@ class CreatureView:
     hunger: float
     thirst: float
     numChildren: int
+    lifespan: int      # ticks survived so far
     decision: tuple    # plain floats, empty before the creature's first tick
 
 @dataclass(frozen=True)

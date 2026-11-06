@@ -15,7 +15,7 @@ class SharedState:
         self._snapshot = None
         self.stop = threading.Event()
         self.paused = threading.Event()   # set() = paused
-
+        self.result = []          # <-- news
     def publish(self, snap):
         with self._lock:
             self._snapshot = snap
@@ -36,7 +36,7 @@ def sim_loop(w, shared: SharedState, publish_hz: float = 60.0):
         if shared.paused.is_set():
             time.sleep(0.01)
             continue
-        time.sleep(0.02)
+        #time.sleep(0.01)
         w.tick()
 
         # No point building a snapshot more often than the UI can draw one
@@ -44,7 +44,8 @@ def sim_loop(w, shared: SharedState, publish_hz: float = 60.0):
         if now - last_publish >= publish_interval:
             shared.publish(w.snapshot())
             last_publish = now
-    w.hasEnded()
+    shared.result =   w.hasEnded()
+    
 
 
 KIND_COLOURS = {
@@ -55,9 +56,9 @@ KIND_COLOURS = {
     "water":     (60, 110, 200),
     "corpse":    (140, 120, 100),
 }
-SIDEBAR_W = 640
+SIDEBAR_W = 690
 DECISION_LABELS = ["R", "L", "Move", "Atk", "Plant", "Corps", "Drink", "Mate"]
-STAT_LABELS = ["HP", "Hun", "Thi", "Kids"]
+STAT_LABELS = ["HP", "Hun", "Thi", "Kids", "Life"]
 ACTION_START = 3
 
 LABEL_COLOUR = (160, 160, 175)
@@ -109,6 +110,7 @@ def draw_sidebar(screen, snap, font, x0, height):
             (f"{c.hunger:.0f}", stat_colour(c.hunger)),
             (f"{c.thirst:.0f}", stat_colour(c.thirst)),
             (str(c.numChildren), (210, 210, 220)),
+            (str(c.lifespan), (210, 210, 220)),
         ]
         for x, (text, colour) in zip(stat_x, stats):
             screen.blit(font.render(text, True, colour), (x, y))
@@ -168,7 +170,7 @@ def ui_loop(shared: SharedState, window_size=(1300, 700)):
 
             draw_sidebar(screen, snap, small, sw - SIDEBAR_W, sh)
             if  len(snap.creatures)<=0:
-                shared.paused.set()
+                shared.stop.set()
 
         pygame.display.flip()
         clock.tick(60)
@@ -177,14 +179,23 @@ def ui_loop(shared: SharedState, window_size=(1300, 700)):
 
 
 if __name__ == "__main__":
-    w = world.World(1)
-    shared = SharedState()
-
-    sim_thread = threading.Thread(target=sim_loop, args=(w, shared), daemon=True)
-    sim_thread.start()
-
-    try:
-        ui_loop(shared)          # blocks on the main thread until the window closes
-    finally:
-        shared.stop.set()
-        sim_thread.join(timeout=2)
+    brains1,brains2=None,None
+    for i in range(0,100):
+        print("world :",i)
+        w=None
+        if i == 1:
+            w = world.World(i,initialCount=55)
+        else:
+            w = world.World(i,brains1 ,brains2)
+        shared = SharedState()
+        sim_thread = threading.Thread(target=sim_loop, args=(w, shared), daemon=True)
+        sim_thread.start()
+    
+        try:
+            ui_loop(shared)          # blocks on the main thread until the window closes
+        finally:
+            shared.stop.set()
+            sim_thread.join(timeout=2)
+        res= shared.result
+        brains1=res[0]
+        brains2=res[1]

@@ -1,14 +1,15 @@
 
 
 class Corpse:
-    def __init__(self, id,posX,posY):
+    def __init__(self, id,posX,posY,health):
         self.id=id
         self.posX=posX
         self.posY=posY
+        
         self.remove=False
-        self.health=100
+        self.health=health
     def tick(self):
-        self.health-=1
+        self.health-=0.1
         if self.health<=0:
             self.remove=True
             
@@ -37,9 +38,10 @@ class Plant:
         self.health=50
     
     def tick(self):
-        self.health+=0.5
+        self.health+=2
         
     def tryEat(self,damage):
+        #return damage
         if self.health>damage:
             self.health-=damage
             return damage
